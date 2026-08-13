@@ -540,7 +540,7 @@ export default function Home() {
         ) : user ? (
           <div className="profile"><span className="avatar">{userInitials}</span><span><strong>{user.displayName}</strong><small className={user.walletAddress ? "wallet-address" : ""}>{user.walletAddress ?? user.email}</small></span><b>✓</b></div>
         ) : (
-          <button className="profile profile-auth" type="button" onClick={() => setIsAuthOpen(true)}><span className="avatar">↗</span><span><strong>Sign up / Sign in</strong><small>Save on this device</small></span><b>›</b></button>
+          <button className="profile profile-auth" type="button" onClick={() => setIsAuthOpen(true)}><span className="avatar">↗</span><span><strong>Sign up / Sign in</strong><small>Secure cloud journal</small></span><b>›</b></button>
         )}
       </aside>
 
@@ -551,7 +551,9 @@ export default function Home() {
             <h1>Trade with clarity.</h1>
           </div>
           <div className="top-actions">
-            <button className="account-button glass" type="button" onClick={user ? signOut : () => setIsAuthOpen(true)}>{user ? "Sign out" : "Sign in / Sign up"}</button>
+            <button className="account-button glass" type="button" onClick={user ? signOut : () => setIsAuthOpen(true)}>
+              {user ? <><span className="account-name">{user.walletAddress ?? user.email}</span><span className="account-action">Sign out</span></> : "Sign in / Sign up"}
+            </button>
             <button className="primary-button" type="button" onClick={openNewTrade}><span>＋</span>Log trade</button>
           </div>
         </header>

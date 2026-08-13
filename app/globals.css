@@ -114,6 +114,8 @@ button { color: inherit; }
 .topbar > div > .eyebrow { color: rgba(255,255,255,0.76); text-shadow: 0 1px 10px rgba(14,6,20,0.5); }
 .top-actions { display: flex; align-items: center; gap: 9px; }
 .account-button { min-height: 42px; padding: 0 16px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-main); text-decoration: none; font-size: 11px; font-weight: 720; }
+.account-name { display: none; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-action { display: inline; }
 .auth-modal { max-width: 560px; }
 .auth-note { margin: 14px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.55; }
 .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 4px 0 18px; padding: 4px; border-radius: 14px; background: rgba(255,255,255,0.25); }
@@ -244,11 +246,11 @@ td:first-child { display: flex; align-items: center; gap: 8px; color: var(--text
 }
 
 @media (max-width: 860px) {
-  .app-shell { padding: 14px; grid-template-columns: 1fr; }.sidebar { position: relative; top: 0; width: 100%; height: auto; padding: 12px 14px; border-radius: 21px; flex-direction: row; align-items: center; gap: 12px; }.nav { margin: 0 0 0 auto; display: flex; }.nav-item { padding: 10px; }.nav-item span { width: auto; }.nav-item { font-size: 0; }.nav-item span { font-size: 17px; }.focus-card, .profile { display: none; }.content { padding: 5px 0 30px; }.workspace-grid { grid-template-columns: 1fr; }.insight-card { min-height: 300px; }
+  .app-shell { padding: 14px; grid-template-columns: 1fr; }.sidebar { position: relative; top: 0; width: 100%; height: auto; padding: 12px 14px; border-radius: 21px; flex-direction: row; align-items: center; gap: 12px; }.nav { margin: 0 0 0 auto; display: flex; }.nav-item { padding: 10px; }.nav-item span { width: auto; }.nav-item { font-size: 0; }.nav-item span { font-size: 17px; }.focus-card { display: none; }.profile { display: flex; margin: 0; min-width: 0; max-width: 205px; padding: 7px; border-radius: 13px; background: rgba(255,205,229,0.1); }.profile strong, .profile small { overflow: hidden; text-overflow: ellipsis; }.profile small.wallet-address { max-height: 25px; overflow: hidden; }.content { padding: 5px 0 30px; }.workspace-grid { grid-template-columns: 1fr; }.insight-card { min-height: 300px; }
 }
 
 @media (max-width: 620px) {
-  .topbar { align-items: flex-start; }.account-button { display: none; }.primary-button { padding: 11px 14px; }.summary-grid { grid-template-columns: 1fr 1fr; }.hero-card { min-height: 190px; grid-column: 1 / -1; }.stat-card:last-child { grid-column: 1 / -1; min-height: 125px; }.calendar-card, .insight-card, .trades-card { border-radius: 20px; padding: 17px; }.weekdays span { font-size: 8px; }.calendar-day, .empty-day { min-height: 52px; padding: 5px; }.calendar-day > span { top: 5px; left: 5px; font-size: 13px; }.calendar-day small { left: 5px; bottom: 5px; font-size: 9.5px; padding: 3px; }.form-grid { grid-template-columns: 1fr; }.trade-modal { padding: 20px; }.toast { left: 20px; right: 20px; bottom: 20px; text-align: center; }
+  .sidebar { flex-wrap: wrap; }.profile { order: 3; width: 100%; max-width: none; padding: 9px 10px; background: rgba(255,205,229,0.14); border: 1px solid rgba(255,220,236,0.2); }.topbar { align-items: flex-start; flex-direction: column; gap: 14px; }.top-actions { width: 100%; }.account-button { display: inline-flex; flex: 1; min-width: 0; gap: 7px; padding: 0 13px; }.account-name { display: block; }.account-action { flex: 0 0 auto; color: var(--rose); }.primary-button { flex: 0 0 auto; padding: 11px 14px; }.summary-grid { grid-template-columns: 1fr 1fr; }.hero-card { min-height: 190px; grid-column: 1 / -1; }.stat-card:last-child { grid-column: 1 / -1; min-height: 125px; }.calendar-card, .insight-card, .trades-card { border-radius: 20px; padding: 17px; }.weekdays span { font-size: 8px; }.calendar-day, .empty-day { min-height: 52px; padding: 5px; }.calendar-day > span { top: 5px; left: 5px; font-size: 13px; }.calendar-day small { left: 5px; bottom: 5px; font-size: 9.5px; padding: 3px; }.form-grid { grid-template-columns: 1fr; }.trade-modal { padding: 20px; }.toast { left: 20px; right: 20px; bottom: 20px; text-align: center; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
