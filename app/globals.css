@@ -45,7 +45,7 @@ button { color: inherit; }
   filter: blur(2px);
   opacity: 0.72;
 }
-.app-shell::before { z-index: -1; inset: 0; width: auto; height: auto; border-radius: 0; filter: none; opacity: 1; transform: none; background: linear-gradient(rgba(16,12,29,0.05), rgba(20,10,24,0.18)), url("/nocturnal-floral-composite.png") center center / cover no-repeat; }
+.app-shell::before { z-index: -1; inset: 0; width: auto; height: auto; border-radius: 0; filter: none; opacity: 1; transform: none; background: linear-gradient(rgba(36,12,39,0.16), rgba(31,10,35,0.3)), url("/lucid-ribbon-background.png") center center / cover no-repeat; }
 .app-shell::after { display: none; }
 
 .ambient { display: none; }
