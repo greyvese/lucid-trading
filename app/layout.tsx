@@ -12,6 +12,14 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(baseUrl),
     title: "Lucid Journal — Trade with clarity",
     description: "A calm, modern trading journal for tracking every setup, risk decision, result, and lesson.",
+    icons: {
+      icon: [
+        { url: "/favicon.ico?v=2", sizes: "64x64", type: "image/x-icon" },
+        { url: "/icon.png?v=2", sizes: "512x512", type: "image/png" },
+      ],
+      shortcut: "/favicon.ico?v=2",
+      apple: "/icon.png?v=2",
+    },
     openGraph: {
       title: "Lucid Journal — Trade with clarity",
       description: "A liquid-glass trading journal with a performance calendar and clear risk tracking.",
