@@ -123,7 +123,7 @@ function accountFromUser(user: User): SignedInUser {
   const walletNetwork = walletAddress ? (provider.includes("solana") ? "Solana" : "Ethereum") : null;
   const email = user.email ?? (walletAddress ?? "Wallet account");
   const displayName = walletAddress
-    ? `${walletNetwork} wallet`
+    ? `${walletNetwork} · ${walletAddress.slice(-5)}`
     : String(user.user_metadata?.display_name ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? email);
   return { id: user.id, displayName, email, walletAddress, walletNetwork };
 }
@@ -538,7 +538,7 @@ export default function Home() {
         {user === undefined ? (
           <div className="profile profile-loading"><span className="avatar">··</span><span><strong>Checking account</strong><small>One moment</small></span></div>
         ) : user ? (
-          <div className="profile"><span className="avatar">{userInitials}</span><span><strong>{user.displayName}</strong><small className={user.walletAddress ? "wallet-address" : ""}>{user.walletAddress ?? user.email}</small></span><b>✓</b></div>
+          <div className="profile"><span className="avatar">{userInitials}</span><span><strong>{user.displayName}</strong><small>{user.walletAddress ? "Connected wallet" : user.email}</small></span><b>✓</b></div>
         ) : (
           <button className="profile profile-auth" type="button" onClick={() => setIsAuthOpen(true)}><span className="avatar">↗</span><span><strong>Sign up / Sign in</strong><small>Secure cloud journal</small></span><b>›</b></button>
         )}
@@ -552,7 +552,7 @@ export default function Home() {
           </div>
           <div className="top-actions">
             <button className="account-button glass" type="button" onClick={user ? signOut : () => setIsAuthOpen(true)}>
-              {user ? <><span className="account-name">{user.walletAddress ?? user.email}</span><span className="account-action">Sign out</span></> : "Sign in / Sign up"}
+              {user ? <><span className="account-name">{user.walletAddress ? user.displayName : user.email}</span><span className="account-action">Sign out</span></> : "Sign in / Sign up"}
             </button>
             <button className="primary-button" type="button" onClick={openNewTrade}><span>＋</span>Log trade</button>
           </div>
