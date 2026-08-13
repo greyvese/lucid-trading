@@ -29,6 +29,7 @@ type Trade = {
 };
 
 type SignedInUser = {
+  id: string;
   displayName: string;
   email: string;
   walletAddress: string | null;
@@ -79,6 +80,13 @@ const money = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 0,
 });
 
+const balanceMoney = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 function formatPrice(value: number) {
   if (value < 10) return value.toFixed(4);
   return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
@@ -117,7 +125,7 @@ function accountFromUser(user: User): SignedInUser {
   const displayName = walletAddress
     ? `${walletNetwork} wallet`
     : String(user.user_metadata?.display_name ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? email);
-  return { displayName, email, walletAddress, walletNetwork };
+  return { id: user.id, displayName, email, walletAddress, walletNetwork };
 }
 
 export default function Home() {
@@ -140,6 +148,11 @@ export default function Home() {
   const [authPassword, setAuthPassword] = useState("");
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [authBusy, setAuthBusy] = useState(false);
+  const [startBalance, setStartBalance] = useState(0);
+  const [startBalanceInput, setStartBalanceInput] = useState("");
+  const [balanceReady, setBalanceReady] = useState(false);
+  const [balanceBusy, setBalanceBusy] = useState(false);
+  const [isBalanceOpen, setIsBalanceOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [form, setForm] = useState({
     ticker: "",
@@ -182,6 +195,8 @@ export default function Home() {
   const winRate = closedTrades.length ? Math.round((wins / closedTrades.length) * 100) : null;
   const averageRatio = closedTrades.length ? closedTrades.reduce((sum, trade) => sum + trade.ratio, 0) / closedTrades.length : null;
   const consistency = trades.length ? Math.round((trades.filter((trade) => trade.pnl >= 0).length / trades.length) * 100) : null;
+  const closedPnl = closedTrades.reduce((sum, trade) => sum + trade.pnl, 0);
+  const currentBalance = startBalance + closedPnl;
   const currentMonthPrefix = today.slice(0, 7);
   const monthPnl = trades.filter((trade) => trade.date.startsWith(currentMonthPrefix)).reduce((sum, trade) => sum + trade.pnl, 0);
 
@@ -236,6 +251,36 @@ export default function Home() {
   }, [user]);
 
   useEffect(() => {
+    if (user === undefined) return;
+    if (!user) {
+      setStartBalance(0);
+      setStartBalanceInput("");
+      setBalanceReady(true);
+      return;
+    }
+
+    setBalanceReady(false);
+    let active = true;
+    const loadStartBalance = async () => {
+      const { data, error } = await supabase
+        .from("account_settings")
+        .select("start_balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      const amount = Number(data?.start_balance ?? 0);
+      if (active) {
+        setStartBalance(amount);
+        setStartBalanceInput(String(amount));
+      }
+    };
+    loadStartBalance().catch((error: Error) => {
+      if (active) setNotice(error.message || "Unable to load your starting balance.");
+    }).finally(() => active && setBalanceReady(true));
+    return () => { active = false; };
+  }, [user]);
+
+  useEffect(() => {
     const [year, month] = today.split("-").map(Number);
     setSelectedDate(today);
     setCalendarYear(year);
@@ -273,6 +318,42 @@ export default function Home() {
       size: "", leverage: "1", strategy: "Opening range", date: selectedDate,
     });
     setIsFormOpen(true);
+  }
+
+  function openBalanceEditor() {
+    if (!user) {
+      setIsAuthOpen(true);
+      return;
+    }
+    setStartBalanceInput(String(startBalance));
+    setIsBalanceOpen(true);
+  }
+
+  async function submitStartBalance(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!user) return;
+    const amount = Number(startBalanceInput);
+    if (!Number.isFinite(amount) || amount < 0) {
+      setNotice("Enter a valid starting balance of zero or more.");
+      return;
+    }
+    setBalanceBusy(true);
+    const { data, error } = await supabase
+      .from("account_settings")
+      .upsert({ user_id: user.id, start_balance: amount, updated_at: new Date().toISOString() }, { onConflict: "user_id" })
+      .select("start_balance")
+      .single();
+    setBalanceBusy(false);
+    if (error || !data) {
+      setNotice(error?.message || "Unable to save your starting balance.");
+      return;
+    }
+    const savedAmount = Number(data.start_balance);
+    setStartBalance(savedAmount);
+    setStartBalanceInput(String(savedAmount));
+    setIsBalanceOpen(false);
+    setNotice("Starting balance saved securely.");
+    setTimeout(() => setNotice(""), 3200);
   }
 
   function openEditTrade(trade: Trade) {
@@ -478,12 +559,15 @@ export default function Home() {
         <section className="summary-grid anchor-section" id="overview" aria-label="Trading summary">
           <article className="hero-card glass">
             <div className="hero-copy">
-              <span className="eyebrow">{monthNames[todayMonth]} performance</span>
-              <p className="hero-value">{monthPnl >= 0 ? "+" : "−"}{money.format(Math.abs(monthPnl))}</p>
-              <div className="gain-pill">{trades.length ? `${trades.length} trade${trades.length === 1 ? "" : "s"} recorded` : "Your journal starts here"}</div>
+              <span className="eyebrow">Current balance</span>
+              <p className="hero-value">{balanceReady ? balanceMoney.format(currentBalance) : "Loading…"}</p>
+              <div className="balance-summary">
+                <span><small>Start balance</small><strong>{balanceReady ? balanceMoney.format(startBalance) : "—"}</strong></span>
+                <button type="button" onClick={openBalanceEditor}>{startBalance > 0 ? "Edit" : "Set balance"}</button>
+              </div>
             </div>
             <div className="orb" aria-hidden="true"><span /></div>
-            <p className="hero-note">{trades.length ? "Your performance updates automatically as you log each position." : "Log your first position to begin building your trading history."}</p>
+            <p className="hero-note"><strong>{monthNames[todayMonth]} P&amp;L: {monthPnl >= 0 ? "+" : "−"}{money.format(Math.abs(monthPnl))}</strong> · Current balance changes automatically after every closed win or loss.</p>
           </article>
 
           <article className="stat-card glass">
@@ -593,6 +677,20 @@ export default function Home() {
                 <label><span>Trade date</span><input required type="date" value={form.date} onChange={(event) => updateField("date", event.target.value)} /></label>
               </div>
               <div className="form-actions"><button className="secondary-button" type="button" onClick={() => { setIsFormOpen(false); setEditingId(null); }}>Cancel</button><button className="primary-button" type="submit">{editingId === null ? "Save trade" : "Update trade"}</button></div>
+            </form>
+          </section>
+        </div>
+      )}
+      {isBalanceOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsBalanceOpen(false)}>
+          <section className="trade-modal balance-modal glass" role="dialog" aria-modal="true" aria-labelledby="balance-modal-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-heading"><div><span className="eyebrow">Account balance</span><h2 id="balance-modal-title">Set your starting balance</h2></div><button type="button" onClick={() => setIsBalanceOpen(false)} aria-label="Close">×</button></div>
+            <p className="balance-explanation">Lucid adds every closed trade's P&amp;L to this amount. Open trades do not change your balance.</p>
+            <form onSubmit={submitStartBalance}>
+              <div className="form-grid balance-form-grid">
+                <label><span>Start balance (USD)</span><input required min="0" inputMode="decimal" type="number" step="0.01" placeholder="10,000.00" value={startBalanceInput} onChange={(event) => setStartBalanceInput(event.target.value)} /></label>
+              </div>
+              <div className="form-actions"><button className="secondary-button" type="button" onClick={() => setIsBalanceOpen(false)}>Cancel</button><button className="primary-button" disabled={balanceBusy} type="submit">{balanceBusy ? "Saving…" : "Save balance"}</button></div>
             </form>
           </section>
         </div>
