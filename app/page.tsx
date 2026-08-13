@@ -70,6 +70,9 @@ export default function Home() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showAllTrades, setShowAllTrades] = useState(false);
   const [user, setUser] = useState<SignedInUser | null | undefined>(undefined);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authName, setAuthName] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
   const [notice, setNotice] = useState("");
   const [form, setForm] = useState({
     ticker: "",
@@ -136,18 +139,22 @@ export default function Home() {
       return;
     }
 
-    let active = true;
     setTradesReady(false);
-    fetch("/api/trades")
-      .then(async (response) => ({ response, payload: await response.json() as { trades?: Trade[]; error?: string } }))
-      .then(({ response, payload }) => {
-        if (!response.ok) throw new Error(payload.error ?? "Unable to load your journal.");
-        if (active) setTrades(payload.trades ?? []);
-      })
-      .catch((error: Error) => active && setNotice(error.message))
-      .finally(() => active && setTradesReady(true));
-    return () => { active = false; };
+    try {
+      const stored = window.localStorage.getItem(`lucid-trades:${user.email.toLowerCase()}`);
+      setTrades(stored ? JSON.parse(stored) as Trade[] : []);
+    } catch {
+      setTrades([]);
+      setNotice("Your saved journal could not be loaded on this device.");
+    } finally {
+      setTradesReady(true);
+    }
   }, [user]);
+
+  useEffect(() => {
+    if (!user || !tradesReady) return;
+    window.localStorage.setItem(`lucid-trades:${user.email.toLowerCase()}`, JSON.stringify(trades));
+  }, [trades, tradesReady, user]);
 
   useEffect(() => {
     const [year, month] = today.split("-").map(Number);
@@ -158,10 +165,12 @@ export default function Home() {
   }, [today]);
 
   useEffect(() => {
-    fetch("/api/me")
-      .then((response) => response.json())
-      .then((payload: { user: SignedInUser | null }) => setUser(payload.user))
-      .catch(() => setUser(null));
+    try {
+      const stored = window.localStorage.getItem("lucid-user");
+      setUser(stored ? JSON.parse(stored) as SignedInUser : null);
+    } catch {
+      setUser(null);
+    }
   }, []);
 
   const userInitials = user?.displayName
@@ -177,7 +186,7 @@ export default function Home() {
 
   function openNewTrade() {
     if (!user) {
-      window.location.href = "/signin-with-chatgpt?return_to=%2F";
+      setIsAuthOpen(true);
       return;
     }
     setEditingId(null);
@@ -205,14 +214,8 @@ export default function Home() {
     setIsFormOpen(true);
   }
 
-  async function deleteTrade(trade: Trade) {
+  function deleteTrade(trade: Trade) {
     if (!window.confirm(`Delete ${trade.ticker} from your journal?`)) return;
-    const response = await fetch(`/api/trades/${trade.id}`, { method: "DELETE" });
-    if (!response.ok) {
-      const payload = await response.json() as { error?: string };
-      setNotice(payload.error ?? "Unable to delete this trade.");
-      return;
-    }
     setTrades((current) => current.filter((item) => item.id !== trade.id));
     setNotice(`${trade.ticker} deleted from your journal`);
     setTimeout(() => setNotice(""), 3200);
@@ -243,7 +246,7 @@ export default function Home() {
     requestAnimationFrame(() => document.getElementById("journal")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
-  async function submitTrade(event: FormEvent<HTMLFormElement>) {
+  function submitTrade(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const entry = Number(form.entry);
     const stop = Number(form.stop);
@@ -266,17 +269,7 @@ export default function Home() {
       strategy: form.strategy,
       status: !exit ? "Open" : livePnl >= 0 ? "Win" : "Loss",
     };
-    const response = await fetch(editingId === null ? "/api/trades" : `/api/trades/${editingId}`, {
-      method: editingId === null ? "POST" : "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(savedTrade),
-    });
-    const payload = await response.json() as { trade?: Trade; error?: string };
-    if (!response.ok || !payload.trade) {
-      setNotice(payload.error ?? "Unable to save this trade.");
-      return;
-    }
-    const storedTrade = payload.trade;
+    const storedTrade = savedTrade;
     setTrades((current) => editingId === null
       ? [storedTrade, ...current]
       : current.map((trade) => trade.id === editingId ? storedTrade : trade));
@@ -291,6 +284,23 @@ export default function Home() {
     setTimeout(() => setNotice(""), 3200);
     setEditingId(null);
     setForm((current) => ({ ...current, ticker: "", entry: "", exit: "", stop: "", target: "", size: "", leverage: "1" }));
+  }
+
+  function submitAuth(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const account = { displayName: authName.trim(), email: authEmail.trim().toLowerCase() };
+    window.localStorage.setItem("lucid-user", JSON.stringify(account));
+    setUser(account);
+    setIsAuthOpen(false);
+    setNotice(`Welcome, ${account.displayName}`);
+    setTimeout(() => setNotice(""), 3200);
+  }
+
+  function signOut() {
+    window.localStorage.removeItem("lucid-user");
+    setUser(null);
+    setTrades([]);
+    setTradesReady(true);
   }
 
   return (
@@ -323,7 +333,7 @@ export default function Home() {
         ) : user ? (
           <div className="profile"><span className="avatar">{userInitials}</span><span><strong>{user.displayName}</strong><small>{user.email}</small></span><b>✓</b></div>
         ) : (
-          <a className="profile profile-auth" href="/signin-with-chatgpt?return_to=%2F"><span className="avatar">↗</span><span><strong>Sign up / Sign in</strong><small>Sync your journal</small></span><b>›</b></a>
+          <button className="profile profile-auth" type="button" onClick={() => setIsAuthOpen(true)}><span className="avatar">↗</span><span><strong>Sign up / Sign in</strong><small>Save on this device</small></span><b>›</b></button>
         )}
       </aside>
 
@@ -334,7 +344,7 @@ export default function Home() {
             <h1>Trade with clarity.</h1>
           </div>
           <div className="top-actions">
-            <a className="account-button glass" href={user ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F"}>{user ? "Sign out" : "Sign in / Sign up"}</a>
+            <button className="account-button glass" type="button" onClick={user ? signOut : () => setIsAuthOpen(true)}>{user ? "Sign out" : "Sign in / Sign up"}</button>
             <button className="primary-button" type="button" onClick={openNewTrade}><span>＋</span>Log trade</button>
           </div>
         </header>
@@ -457,6 +467,21 @@ export default function Home() {
                 <label><span>Trade date</span><input required type="date" value={form.date} onChange={(event) => updateField("date", event.target.value)} /></label>
               </div>
               <div className="form-actions"><button className="secondary-button" type="button" onClick={() => { setIsFormOpen(false); setEditingId(null); }}>Cancel</button><button className="primary-button" type="submit">{editingId === null ? "Save trade" : "Update trade"}</button></div>
+            </form>
+          </section>
+        </div>
+      )}
+      {isAuthOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsAuthOpen(false)}>
+          <section className="trade-modal glass auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="modal-heading"><div><span className="eyebrow">Your private journal</span><h2 id="auth-modal-title">Sign up or sign in</h2></div><button type="button" onClick={() => setIsAuthOpen(false)} aria-label="Close">×</button></div>
+            <form onSubmit={submitAuth}>
+              <div className="form-grid">
+                <label><span>Name</span><input required autoComplete="name" placeholder="Your name" value={authName} onChange={(event) => setAuthName(event.target.value)} /></label>
+                <label><span>Email</span><input required type="email" autoComplete="email" placeholder="you@example.com" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} /></label>
+              </div>
+              <p className="auth-note">Your journal is stored privately in this browser. Use the same email on this device to reopen it.</p>
+              <div className="form-actions"><button className="secondary-button" type="button" onClick={() => setIsAuthOpen(false)}>Cancel</button><button className="primary-button" type="submit">Continue</button></div>
             </form>
           </section>
         </div>
