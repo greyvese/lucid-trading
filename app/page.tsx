@@ -611,7 +611,7 @@ export default function Home() {
               <div className="form-actions"><button className="secondary-button" type="button" onClick={() => setIsAuthOpen(false)}>Cancel</button><button className="primary-button" disabled={authBusy} type="submit">{authBusy ? "Please wait…" : authMode === "signup" ? "Create account" : "Sign in"}</button></div>
             </form>
             <div className="auth-divider"><span>or continue with</span></div>
-            <button className="social-auth-button" disabled={authBusy} type="button" onClick={signInWithGoogle}><span className="auth-logo google-logo" aria-hidden="true">G</span><span>Google</span></button>
+            <button className="social-auth-button" disabled={authBusy} type="button" onClick={signInWithGoogle}>Google</button>
             <div className="wallet-grid">
               <button type="button" disabled={authBusy} onClick={signInWithEthereum}><span className="auth-logo ethereum-logo" aria-hidden="true"><i /><i /></span><span>Ethereum</span></button>
               <button type="button" disabled={authBusy} onClick={signInWithSolana}><span className="auth-logo solana-logo" aria-hidden="true"><i /><i /><i /></span><span>Solana</span></button>

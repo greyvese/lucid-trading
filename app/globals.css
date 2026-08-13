@@ -126,7 +126,6 @@ button { color: inherit; }
 .wallet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 .social-auth-button:disabled, .wallet-grid button:disabled, .primary-button:disabled { opacity: .55; cursor: wait; }
 .auth-logo { width: 20px; height: 20px; flex: 0 0 20px; display: grid; place-items: center; }
-.google-logo { border-radius: 50%; background: conic-gradient(from -35deg, #4285f4 0 25%, #34a853 0 47%, #fbbc05 0 70%, #ea4335 0 100%); color: white; font-size: 12px; font-weight: 900; box-shadow: inset 0 0 0 4px rgba(255,255,255,.92); }
 .ethereum-logo { position: relative; grid-template-rows: 1fr 1fr; gap: 1px; }
 .ethereum-logo i { width: 11px; height: 8px; display: block; background: linear-gradient(135deg, #d9d4ff, #7166d5); clip-path: polygon(50% 0, 100% 100%, 50% 77%, 0 100%); }
 .ethereum-logo i:last-child { transform: rotate(180deg); }
