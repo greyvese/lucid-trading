@@ -31,6 +31,8 @@ type Trade = {
 type SignedInUser = {
   displayName: string;
   email: string;
+  walletAddress: string | null;
+  walletNetwork: "Ethereum" | "Solana" | null;
 };
 
 type DatabaseTrade = {
@@ -101,10 +103,21 @@ function toDatabaseTrade(trade: Trade) {
 }
 
 function accountFromUser(user: User): SignedInUser {
-  const walletAddress = user.identities?.find((identity) => identity.provider === "web3")?.identity_data?.address;
-  const email = user.email ?? (walletAddress ? String(walletAddress) : "Wallet account");
-  const displayName = String(user.user_metadata?.display_name ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? (walletAddress ? `${String(walletAddress).slice(0, 6)}…${String(walletAddress).slice(-4)}` : email));
-  return { displayName, email };
+  const walletIdentity = user.identities?.find((identity) => {
+    const provider = identity.provider.toLowerCase();
+    return provider === "web3" || provider === "ethereum" || provider === "solana" || Boolean(identity.identity_data?.address);
+  });
+  const identityData = walletIdentity?.identity_data;
+  const walletAddress = walletIdentity
+    ? String(identityData?.address ?? identityData?.wallet_address ?? identityData?.sub ?? walletIdentity.identity_id ?? walletIdentity.id)
+    : null;
+  const provider = String(identityData?.chain ?? identityData?.provider ?? walletIdentity?.provider ?? "").toLowerCase();
+  const walletNetwork = walletAddress ? (provider.includes("solana") ? "Solana" : "Ethereum") : null;
+  const email = user.email ?? (walletAddress ?? "Wallet account");
+  const displayName = walletAddress
+    ? `${walletNetwork} wallet`
+    : String(user.user_metadata?.display_name ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? email);
+  return { displayName, email, walletAddress, walletNetwork };
 }
 
 export default function Home() {
@@ -391,16 +404,15 @@ export default function Home() {
     if (error) { setAuthBusy(false); setNotice(error.message); }
   }
 
-  async function signInWithEvm(chainId: string, label: string) {
-    if (!window.ethereum) { setNotice(`Install an Ethereum-compatible wallet to use ${label}.`); return; }
+  async function signInWithEthereum() {
+    if (!window.ethereum) { setNotice("Install an Ethereum-compatible wallet to continue."); return; }
     setAuthBusy(true);
     try {
-      await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId }] });
       const { error } = await supabase.auth.signInWithWeb3({ chain: "ethereum", statement: "Sign in securely to Lucid Journal." });
       if (error) throw error;
       setIsAuthOpen(false);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : `Unable to sign in with ${label}.`);
+      setNotice(error instanceof Error ? error.message : "Unable to sign in with Ethereum.");
     } finally { setAuthBusy(false); }
   }
 
@@ -445,7 +457,7 @@ export default function Home() {
         {user === undefined ? (
           <div className="profile profile-loading"><span className="avatar">··</span><span><strong>Checking account</strong><small>One moment</small></span></div>
         ) : user ? (
-          <div className="profile"><span className="avatar">{userInitials}</span><span><strong>{user.displayName}</strong><small>{user.email}</small></span><b>✓</b></div>
+          <div className="profile"><span className="avatar">{userInitials}</span><span><strong>{user.displayName}</strong><small className={user.walletAddress ? "wallet-address" : ""}>{user.walletAddress ?? user.email}</small></span><b>✓</b></div>
         ) : (
           <button className="profile profile-auth" type="button" onClick={() => setIsAuthOpen(true)}><span className="avatar">↗</span><span><strong>Sign up / Sign in</strong><small>Save on this device</small></span><b>›</b></button>
         )}
@@ -599,12 +611,10 @@ export default function Home() {
               <div className="form-actions"><button className="secondary-button" type="button" onClick={() => setIsAuthOpen(false)}>Cancel</button><button className="primary-button" disabled={authBusy} type="submit">{authBusy ? "Please wait…" : authMode === "signup" ? "Create account" : "Sign in"}</button></div>
             </form>
             <div className="auth-divider"><span>or continue with</span></div>
-            <button className="social-auth-button" disabled={authBusy} type="button" onClick={signInWithGoogle}>Google</button>
+            <button className="social-auth-button" disabled={authBusy} type="button" onClick={signInWithGoogle}><span className="auth-logo google-logo" aria-hidden="true">G</span><span>Google</span></button>
             <div className="wallet-grid">
-              <button type="button" disabled={authBusy} onClick={() => signInWithEvm("0x1", "Ethereum")}>Ethereum</button>
-              <button type="button" disabled={authBusy} onClick={() => signInWithEvm("0x2105", "Base")}>Base</button>
-              <button type="button" disabled={authBusy} onClick={() => signInWithEvm("0x38", "BNB Chain")}>BNB Chain</button>
-              <button type="button" disabled={authBusy} onClick={signInWithSolana}>Solana</button>
+              <button type="button" disabled={authBusy} onClick={signInWithEthereum}><span className="auth-logo ethereum-logo" aria-hidden="true"><i /><i /></span><span>Ethereum</span></button>
+              <button type="button" disabled={authBusy} onClick={signInWithSolana}><span className="auth-logo solana-logo" aria-hidden="true"><i /><i /><i /></span><span>Solana</span></button>
             </div>
             <p className="auth-note">Passwords are handled by Supabase Auth. Trades are stored in a protected database where each account can access only its own rows.</p>
           </section>

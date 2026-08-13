@@ -101,6 +101,7 @@ button { color: inherit; }
 .profile strong, .profile small { display: block; white-space: nowrap; }
 .profile strong { font-size: 11px; }
 .profile small { margin-top: 2px; color: var(--text-muted); font-size: 9px; }
+.profile small.wallet-address { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
 .profile b { letter-spacing: 2px; font-size: 8px; }
 .avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(145deg, var(--rose), #f3d7d4); font-size: 9px; font-weight: 800; }
 .profile-auth { cursor: pointer; border-radius: 13px; transition: 160ms ease; }.profile-auth:hover { background: rgba(255,255,255,0.38); }.profile-loading { opacity: 0.65; }
@@ -120,10 +121,17 @@ button { color: inherit; }
 .auth-tabs button.active { color: var(--text-main); background: rgba(255,255,255,0.66); box-shadow: 0 8px 24px rgba(53,16,58,0.08); }
 .auth-divider { display: flex; align-items: center; gap: 10px; margin: 19px 0 13px; color: var(--text-muted); font-size: 9px; text-transform: uppercase; letter-spacing: .14em; }
 .auth-divider::before, .auth-divider::after { content: ""; height: 1px; flex: 1; background: rgba(74,31,71,0.16); }
-.social-auth-button, .wallet-grid button { width: 100%; min-height: 42px; border: 1px solid rgba(255,255,255,0.5); border-radius: 13px; background: rgba(255,255,255,0.36); color: var(--text-main); font: inherit; font-size: 11px; font-weight: 760; cursor: pointer; }
+.social-auth-button, .wallet-grid button { width: 100%; min-height: 42px; border: 1px solid rgba(255,255,255,0.5); border-radius: 13px; background: rgba(255,255,255,0.36); color: var(--text-main); font: inherit; font-size: 11px; font-weight: 760; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 9px; }
 .social-auth-button:hover, .wallet-grid button:hover { background: rgba(255,255,255,0.62); }
 .wallet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 .social-auth-button:disabled, .wallet-grid button:disabled, .primary-button:disabled { opacity: .55; cursor: wait; }
+.auth-logo { width: 20px; height: 20px; flex: 0 0 20px; display: grid; place-items: center; }
+.google-logo { border-radius: 50%; background: conic-gradient(from -35deg, #4285f4 0 25%, #34a853 0 47%, #fbbc05 0 70%, #ea4335 0 100%); color: white; font-size: 12px; font-weight: 900; box-shadow: inset 0 0 0 4px rgba(255,255,255,.92); }
+.ethereum-logo { position: relative; grid-template-rows: 1fr 1fr; gap: 1px; }
+.ethereum-logo i { width: 11px; height: 8px; display: block; background: linear-gradient(135deg, #d9d4ff, #7166d5); clip-path: polygon(50% 0, 100% 100%, 50% 77%, 0 100%); }
+.ethereum-logo i:last-child { transform: rotate(180deg); }
+.solana-logo { gap: 2px; align-content: center; }
+.solana-logo i { width: 17px; height: 4px; display: block; border-radius: 1px; transform: skewX(-24deg); background: linear-gradient(90deg, #9945ff, #14f195); }
 .primary-button { border: 0; border-radius: 99px; background: linear-gradient(135deg, var(--purple), var(--wine)); color: white; padding: 12px 18px; min-height: 42px; font-size: 12px; font-weight: 720; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: 0 12px 24px rgba(52,18,58,0.28); transition: transform 160ms ease, box-shadow 160ms ease; }
 .primary-button:hover { transform: translateY(-2px); box-shadow: 0 15px 28px rgba(29,26,27,0.25); }
 .primary-button span { color: var(--rose); font-size: 17px; }
