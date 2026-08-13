@@ -115,6 +115,15 @@ button { color: inherit; }
 .account-button { min-height: 42px; padding: 0 16px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-main); text-decoration: none; font-size: 11px; font-weight: 720; }
 .auth-modal { max-width: 560px; }
 .auth-note { margin: 14px 0 0; color: var(--text-muted); font-size: 11px; line-height: 1.55; }
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 4px 0 18px; padding: 4px; border-radius: 14px; background: rgba(255,255,255,0.25); }
+.auth-tabs button { min-height: 38px; border: 0; border-radius: 10px; background: transparent; color: var(--text-muted); font: inherit; font-size: 11px; font-weight: 750; cursor: pointer; }
+.auth-tabs button.active { color: var(--text-main); background: rgba(255,255,255,0.66); box-shadow: 0 8px 24px rgba(53,16,58,0.08); }
+.auth-divider { display: flex; align-items: center; gap: 10px; margin: 19px 0 13px; color: var(--text-muted); font-size: 9px; text-transform: uppercase; letter-spacing: .14em; }
+.auth-divider::before, .auth-divider::after { content: ""; height: 1px; flex: 1; background: rgba(74,31,71,0.16); }
+.social-auth-button, .wallet-grid button { width: 100%; min-height: 42px; border: 1px solid rgba(255,255,255,0.5); border-radius: 13px; background: rgba(255,255,255,0.36); color: var(--text-main); font: inherit; font-size: 11px; font-weight: 760; cursor: pointer; }
+.social-auth-button:hover, .wallet-grid button:hover { background: rgba(255,255,255,0.62); }
+.wallet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.social-auth-button:disabled, .wallet-grid button:disabled, .primary-button:disabled { opacity: .55; cursor: wait; }
 .primary-button { border: 0; border-radius: 99px; background: linear-gradient(135deg, var(--purple), var(--wine)); color: white; padding: 12px 18px; min-height: 42px; font-size: 12px; font-weight: 720; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: 0 12px 24px rgba(52,18,58,0.28); transition: transform 160ms ease, box-shadow 160ms ease; }
 .primary-button:hover { transform: translateY(-2px); box-shadow: 0 15px 28px rgba(29,26,27,0.25); }
 .primary-button span { color: var(--rose); font-size: 17px; }

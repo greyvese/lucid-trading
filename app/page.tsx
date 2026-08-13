@@ -1,6 +1,15 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { supabase } from "./supabase";
+
+declare global {
+  interface Window {
+    ethereum?: { request: (request: { method: string; params?: unknown[] }) => Promise<unknown> };
+    solana?: { connect: () => Promise<unknown> };
+  }
+}
 
 type Trade = {
   id: number;
@@ -22,6 +31,23 @@ type Trade = {
 type SignedInUser = {
   displayName: string;
   email: string;
+};
+
+type DatabaseTrade = {
+  id: number;
+  date: string;
+  ticker: string;
+  side: "Long" | "Short";
+  entry: number;
+  exit: number | null;
+  stop: number;
+  target: number;
+  size: number;
+  leverage: number;
+  pnl: number;
+  ratio: number;
+  strategy: string;
+  status: "Win" | "Loss" | "Open";
 };
 
 const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -56,6 +82,31 @@ function formatPrice(value: number) {
   return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
 
+function fromDatabaseTrade(row: DatabaseTrade): Trade {
+  return {
+    id: Number(row.id), date: row.date, ticker: row.ticker, side: row.side,
+    entry: row.entry, exit: row.exit, stop: row.stop, target: row.target,
+    size: row.size, leverage: row.leverage, pnl: row.pnl, ratio: row.ratio,
+    strategy: row.strategy, status: row.status,
+  };
+}
+
+function toDatabaseTrade(trade: Trade) {
+  return {
+    date: trade.date, ticker: trade.ticker, side: trade.side, entry: trade.entry,
+    exit: trade.exit, stop: trade.stop, target: trade.target, size: trade.size,
+    leverage: trade.leverage, pnl: trade.pnl, ratio: trade.ratio,
+    strategy: trade.strategy, status: trade.status,
+  };
+}
+
+function accountFromUser(user: User): SignedInUser {
+  const walletAddress = user.identities?.find((identity) => identity.provider === "web3")?.identity_data?.address;
+  const email = user.email ?? (walletAddress ? String(walletAddress) : "Wallet account");
+  const displayName = String(user.user_metadata?.display_name ?? user.user_metadata?.full_name ?? user.user_metadata?.name ?? (walletAddress ? `${String(walletAddress).slice(0, 6)}…${String(walletAddress).slice(-4)}` : email));
+  return { displayName, email };
+}
+
 export default function Home() {
   const initialToday = localIsoDate();
   const initialYear = Number(initialToday.slice(0, 4));
@@ -73,6 +124,9 @@ export default function Home() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authName, setAuthName] = useState("");
   const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [authBusy, setAuthBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [form, setForm] = useState({
     ticker: "",
@@ -140,21 +194,33 @@ export default function Home() {
     }
 
     setTradesReady(false);
-    try {
-      const stored = window.localStorage.getItem(`lucid-trades:${user.email.toLowerCase()}`);
-      setTrades(stored ? JSON.parse(stored) as Trade[] : []);
-    } catch {
-      setTrades([]);
-      setNotice("Your saved journal could not be loaded on this device.");
-    } finally {
-      setTradesReady(true);
-    }
-  }, [user]);
+    let active = true;
+    const loadTrades = async () => {
+      const { data, error } = await supabase.from("trades").select("*").order("date", { ascending: false }).order("id", { ascending: false });
+      if (error) throw error;
+      let loaded = (data ?? []).map(fromDatabaseTrade);
 
-  useEffect(() => {
-    if (!user || !tradesReady) return;
-    window.localStorage.setItem(`lucid-trades:${user.email.toLowerCase()}`, JSON.stringify(trades));
-  }, [trades, tradesReady, user]);
+      const localKey = user.email ? `lucid-trades:${user.email.toLowerCase()}` : "";
+      const local = localKey ? window.localStorage.getItem(localKey) : null;
+      if (!loaded.length && local) {
+        const legacy = JSON.parse(local) as Trade[];
+        if (legacy.length) {
+          const { data: migrated, error: migrationError } = await supabase.from("trades").insert(legacy.map(toDatabaseTrade)).select();
+          if (migrationError) throw migrationError;
+          loaded = (migrated ?? []).map(fromDatabaseTrade);
+          window.localStorage.removeItem(localKey);
+        }
+      }
+      if (active) setTrades(loaded);
+    };
+    loadTrades().catch((error: Error) => {
+      if (active) {
+        setTrades([]);
+        setNotice(error.message || "Unable to load your secure journal.");
+      }
+    }).finally(() => active && setTradesReady(true));
+    return () => { active = false; };
+  }, [user]);
 
   useEffect(() => {
     const [year, month] = today.split("-").map(Number);
@@ -165,12 +231,11 @@ export default function Home() {
   }, [today]);
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem("lucid-user");
-      setUser(stored ? JSON.parse(stored) as SignedInUser : null);
-    } catch {
-      setUser(null);
-    }
+    supabase.auth.getUser().then(({ data }) => setUser(data.user ? accountFromUser(data.user) : null));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ? accountFromUser(session.user) : null);
+    });
+    return () => listener.subscription.unsubscribe();
   }, []);
 
   const userInitials = user?.displayName
@@ -214,8 +279,13 @@ export default function Home() {
     setIsFormOpen(true);
   }
 
-  function deleteTrade(trade: Trade) {
+  async function deleteTrade(trade: Trade) {
     if (!window.confirm(`Delete ${trade.ticker} from your journal?`)) return;
+    const { error } = await supabase.from("trades").delete().eq("id", trade.id);
+    if (error) {
+      setNotice(error.message || "Unable to delete this trade.");
+      return;
+    }
     setTrades((current) => current.filter((item) => item.id !== trade.id));
     setNotice(`${trade.ticker} deleted from your journal`);
     setTimeout(() => setNotice(""), 3200);
@@ -246,7 +316,7 @@ export default function Home() {
     requestAnimationFrame(() => document.getElementById("journal")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
-  function submitTrade(event: FormEvent<HTMLFormElement>) {
+  async function submitTrade(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const entry = Number(form.entry);
     const stop = Number(form.stop);
@@ -269,7 +339,15 @@ export default function Home() {
       strategy: form.strategy,
       status: !exit ? "Open" : livePnl >= 0 ? "Win" : "Loss",
     };
-    const storedTrade = savedTrade;
+    const operation = editingId === null
+      ? supabase.from("trades").insert(toDatabaseTrade(savedTrade)).select().single()
+      : supabase.from("trades").update(toDatabaseTrade(savedTrade)).eq("id", editingId).select().single();
+    const { data, error } = await operation;
+    if (error || !data) {
+      setNotice(error?.message || "Unable to save this trade.");
+      return;
+    }
+    const storedTrade = fromDatabaseTrade(data);
     setTrades((current) => editingId === null
       ? [storedTrade, ...current]
       : current.map((trade) => trade.id === editingId ? storedTrade : trade));
@@ -286,21 +364,57 @@ export default function Home() {
     setForm((current) => ({ ...current, ticker: "", entry: "", exit: "", stop: "", target: "", size: "", leverage: "1" }));
   }
 
-  function submitAuth(event: FormEvent<HTMLFormElement>) {
+  async function submitAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const account = { displayName: authName.trim(), email: authEmail.trim().toLowerCase() };
-    window.localStorage.setItem("lucid-user", JSON.stringify(account));
-    setUser(account);
+    setAuthBusy(true);
+    const email = authEmail.trim().toLowerCase();
+    const result = authMode === "signup"
+      ? await supabase.auth.signUp({ email, password: authPassword, options: { data: { display_name: authName.trim() }, emailRedirectTo: window.location.origin } })
+      : await supabase.auth.signInWithPassword({ email, password: authPassword });
+    setAuthBusy(false);
+    if (result.error) {
+      setNotice(result.error.message);
+      return;
+    }
     setIsAuthOpen(false);
-    setNotice(`Welcome, ${account.displayName}`);
-    setTimeout(() => setNotice(""), 3200);
+    setNotice(authMode === "signup" && !result.data.session ? "Check your email to confirm your account." : "Signed in securely.");
+    setTimeout(() => setNotice(""), 4200);
   }
 
-  function signOut() {
-    window.localStorage.removeItem("lucid-user");
-    setUser(null);
-    setTrades([]);
-    setTradesReady(true);
+  async function signOut() {
+    await supabase.auth.signOut();
+  }
+
+  async function signInWithGoogle() {
+    setAuthBusy(true);
+    const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } });
+    if (error) { setAuthBusy(false); setNotice(error.message); }
+  }
+
+  async function signInWithEvm(chainId: string, label: string) {
+    if (!window.ethereum) { setNotice(`Install an Ethereum-compatible wallet to use ${label}.`); return; }
+    setAuthBusy(true);
+    try {
+      await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId }] });
+      const { error } = await supabase.auth.signInWithWeb3({ chain: "ethereum", statement: "Sign in securely to Lucid Journal." });
+      if (error) throw error;
+      setIsAuthOpen(false);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : `Unable to sign in with ${label}.`);
+    } finally { setAuthBusy(false); }
+  }
+
+  async function signInWithSolana() {
+    if (!window.solana) { setNotice("Install a Solana wallet such as Phantom to continue."); return; }
+    setAuthBusy(true);
+    try {
+      await window.solana.connect();
+      const { error } = await supabase.auth.signInWithWeb3({ chain: "solana", statement: "Sign in securely to Lucid Journal." });
+      if (error) throw error;
+      setIsAuthOpen(false);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Unable to sign in with Solana.");
+    } finally { setAuthBusy(false); }
   }
 
   return (
@@ -474,15 +588,25 @@ export default function Home() {
       {isAuthOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsAuthOpen(false)}>
           <section className="trade-modal glass auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="modal-heading"><div><span className="eyebrow">Your private journal</span><h2 id="auth-modal-title">Sign up or sign in</h2></div><button type="button" onClick={() => setIsAuthOpen(false)} aria-label="Close">×</button></div>
+            <div className="modal-heading"><div><span className="eyebrow">Your private journal</span><h2 id="auth-modal-title">{authMode === "signup" ? "Create your account" : "Welcome back"}</h2></div><button type="button" onClick={() => setIsAuthOpen(false)} aria-label="Close">×</button></div>
+            <div className="auth-tabs"><button type="button" className={authMode === "signin" ? "active" : ""} onClick={() => setAuthMode("signin")}>Sign in</button><button type="button" className={authMode === "signup" ? "active" : ""} onClick={() => setAuthMode("signup")}>Sign up</button></div>
             <form onSubmit={submitAuth}>
               <div className="form-grid">
-                <label><span>Name</span><input required autoComplete="name" placeholder="Your name" value={authName} onChange={(event) => setAuthName(event.target.value)} /></label>
+                {authMode === "signup" && <label><span>Name</span><input required autoComplete="name" placeholder="Your name" value={authName} onChange={(event) => setAuthName(event.target.value)} /></label>}
                 <label><span>Email</span><input required type="email" autoComplete="email" placeholder="you@example.com" value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} /></label>
+                <label><span>Password</span><input required minLength={8} type="password" autoComplete={authMode === "signup" ? "new-password" : "current-password"} placeholder="At least 8 characters" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} /></label>
               </div>
-              <p className="auth-note">Your journal is stored privately in this browser. Use the same email on this device to reopen it.</p>
-              <div className="form-actions"><button className="secondary-button" type="button" onClick={() => setIsAuthOpen(false)}>Cancel</button><button className="primary-button" type="submit">Continue</button></div>
+              <div className="form-actions"><button className="secondary-button" type="button" onClick={() => setIsAuthOpen(false)}>Cancel</button><button className="primary-button" disabled={authBusy} type="submit">{authBusy ? "Please wait…" : authMode === "signup" ? "Create account" : "Sign in"}</button></div>
             </form>
+            <div className="auth-divider"><span>or continue with</span></div>
+            <button className="social-auth-button" disabled={authBusy} type="button" onClick={signInWithGoogle}>Google</button>
+            <div className="wallet-grid">
+              <button type="button" disabled={authBusy} onClick={() => signInWithEvm("0x1", "Ethereum")}>Ethereum</button>
+              <button type="button" disabled={authBusy} onClick={() => signInWithEvm("0x2105", "Base")}>Base</button>
+              <button type="button" disabled={authBusy} onClick={() => signInWithEvm("0x38", "BNB Chain")}>BNB Chain</button>
+              <button type="button" disabled={authBusy} onClick={signInWithSolana}>Solana</button>
+            </div>
+            <p className="auth-note">Passwords are handled by Supabase Auth. Trades are stored in a protected database where each account can access only its own rows.</p>
           </section>
         </div>
       )}
