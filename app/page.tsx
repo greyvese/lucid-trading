@@ -25,6 +25,7 @@ type Trade = {
   pnl: number;
   ratio: number;
   strategy: string;
+  note: string;
   status: "Win" | "Loss" | "Open";
 };
 
@@ -50,6 +51,7 @@ type DatabaseTrade = {
   pnl: number;
   ratio: number;
   strategy: string;
+  note: string;
   status: "Win" | "Loss" | "Open";
 };
 
@@ -97,7 +99,7 @@ function fromDatabaseTrade(row: DatabaseTrade): Trade {
     id: Number(row.id), date: row.date, ticker: row.ticker, side: row.side,
     entry: row.entry, exit: row.exit, stop: row.stop, target: row.target,
     size: row.size, leverage: row.leverage, pnl: row.pnl, ratio: row.ratio,
-    strategy: row.strategy, status: row.status,
+    strategy: row.strategy, note: row.note ?? "", status: row.status,
   };
 }
 
@@ -106,7 +108,7 @@ function toDatabaseTrade(trade: Trade) {
     date: trade.date, ticker: trade.ticker, side: trade.side, entry: trade.entry,
     exit: trade.exit, stop: trade.stop, target: trade.target, size: trade.size,
     leverage: trade.leverage, pnl: trade.pnl, ratio: trade.ratio,
-    strategy: trade.strategy, status: trade.status,
+    strategy: trade.strategy, note: trade.note ?? "", status: trade.status,
   };
 }
 
@@ -164,6 +166,7 @@ export default function Home() {
     size: "",
     leverage: "1",
     strategy: "Opening range",
+    note: "",
     date: initialToday,
   });
 
@@ -315,7 +318,7 @@ export default function Home() {
     setEditingId(null);
     setForm({
       ticker: "", side: "Long", entry: "", exit: "", stop: "", target: "",
-      size: "", leverage: "1", strategy: "Opening range", date: selectedDate,
+      size: "", leverage: "1", strategy: "Opening range", note: "", date: selectedDate,
     });
     setIsFormOpen(true);
   }
@@ -368,6 +371,7 @@ export default function Home() {
       size: String(trade.size),
       leverage: String(trade.leverage),
       strategy: trade.strategy,
+      note: trade.note,
       date: String(trade.date),
     });
     setIsFormOpen(true);
@@ -431,6 +435,7 @@ export default function Home() {
       pnl: livePnl,
       ratio: Number.isFinite(ratio) ? ratio : 0,
       strategy: form.strategy,
+      note: form.note.trim(),
       status: !exit ? "Open" : livePnl >= 0 ? "Win" : "Loss",
     };
     const operation = editingId === null
@@ -455,7 +460,7 @@ export default function Home() {
       : `${storedTrade.ticker} position updated`);
     setTimeout(() => setNotice(""), 3200);
     setEditingId(null);
-    setForm((current) => ({ ...current, ticker: "", entry: "", exit: "", stop: "", target: "", size: "", leverage: "1" }));
+    setForm((current) => ({ ...current, ticker: "", entry: "", exit: "", stop: "", target: "", size: "", leverage: "1", note: "" }));
   }
 
   async function submitAuth(event: FormEvent<HTMLFormElement>) {
@@ -640,16 +645,16 @@ export default function Home() {
           </div>
           <div className="table-scroll">
             <table>
-              <thead><tr><th>Ticker</th><th>Entry</th><th>Size</th><th>Leverage</th><th>Stop loss</th><th>Take profit</th><th>Result</th><th>Ratio</th><th>Strategy</th><th /></tr></thead>
+              <thead><tr><th>Ticker</th><th>Entry</th><th>Size</th><th>Leverage</th><th>Stop loss</th><th>Take profit</th><th>Result</th><th>Ratio</th><th>Strategy</th><th>Notes</th><th /></tr></thead>
               <tbody>
-                {!tradesReady && <tr><td colSpan={10}>Loading your journal…</td></tr>}
-                {tradesReady && trades.length === 0 && <tr><td colSpan={10}>{user ? "Your journal is ready for your first trade." : "Sign in to create and save your journal."}</td></tr>}
+                {!tradesReady && <tr><td colSpan={11}>Loading your journal…</td></tr>}
+                {tradesReady && trades.length === 0 && <tr><td colSpan={11}>{user ? "Your journal is ready for your first trade." : "Sign in to create and save your journal."}</td></tr>}
                 {(showAllTrades ? trades : trades.slice(0, 5)).map((trade) => (
                   <tr className={trade.date === selectedDate ? "selected-trade-row" : ""} key={trade.id}>
                     <td><span className="ticker-icon">{trade.ticker.slice(0, 1)}</span><span><strong>{trade.ticker}</strong><small>{trade.side} · {formatTradeDate(trade.date)}</small></span></td>
                     <td>{formatPrice(trade.entry)}</td><td>{money.format(trade.size)}</td><td><b>{trade.leverage}×</b></td><td>{formatPrice(trade.stop)}</td><td>{formatPrice(trade.target)}</td>
                     <td><span className={`result ${trade.status.toLowerCase()}`}>{trade.status === "Open" ? "Open" : `${trade.pnl > 0 ? "+" : "−"}${money.format(Math.abs(trade.pnl))}`}</span></td>
-                    <td><b>1 : {trade.ratio.toFixed(2)}</b></td><td><span className="strategy-chip">{trade.strategy}</span></td>
+                    <td><b>1 : {trade.ratio.toFixed(2)}</b></td><td><span className="strategy-chip">{trade.strategy}</span></td><td><span className={trade.note ? "trade-note" : "trade-note empty"}>{trade.note || "—"}</span></td>
                     <td><div className="row-actions"><button type="button" onClick={() => openEditTrade(trade)}>Edit</button><button className="delete-action" type="button" onClick={() => deleteTrade(trade)}>Delete</button></div></td>
                   </tr>
                 ))}
@@ -677,6 +682,7 @@ export default function Home() {
                 <label><span>Calculated P&amp;L</span><input className={livePnl > 0 ? "pnl-positive" : livePnl < 0 ? "pnl-negative" : ""} readOnly value={!form.exit ? "Open — add exit to calculate" : `${livePnl >= 0 ? "+" : "−"}${money.format(Math.abs(livePnl))}`} /></label>
                 <label><span>Strategy</span><select value={form.strategy} onChange={(event) => updateField("strategy", event.target.value)}><option>Opening range</option><option>Liquidity sweep</option><option>VWAP reclaim</option><option>Break &amp; retest</option><option>Trend pullback</option></select></label>
                 <label><span>Trade date</span><input required type="date" value={form.date} onChange={(event) => updateField("date", event.target.value)} /></label>
+                <label className="notes-field"><span>Trade note <small>optional, up to 600 characters</small></span><textarea maxLength={600} placeholder="What did you see, learn, or want to remember?" value={form.note} onChange={(event) => updateField("note", event.target.value)} /></label>
               </div>
               <div className="form-actions"><button className="secondary-button" type="button" onClick={() => { setIsFormOpen(false); setEditingId(null); }}>Cancel</button><button className="primary-button" type="submit">{editingId === null ? "Save trade" : "Update trade"}</button></div>
             </form>
