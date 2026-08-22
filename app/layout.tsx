@@ -14,11 +14,10 @@ export async function generateMetadata(): Promise<Metadata> {
     description: "A calm, modern trading journal for tracking every setup, risk decision, result, and lesson.",
     icons: {
       icon: [
-        { url: "/favicon.ico?v=2", sizes: "64x64", type: "image/x-icon" },
-        { url: "/icon.png?v=2", sizes: "512x512", type: "image/png" },
+        { url: "/lucid-favicon.svg?v=3", type: "image/svg+xml" },
       ],
-      shortcut: "/favicon.ico?v=2",
-      apple: "/icon.png?v=2",
+      shortcut: "/lucid-favicon.svg?v=3",
+      apple: "/lucid-favicon.svg?v=3",
     },
     openGraph: {
       title: "Lucid Journal — Trade with clarity",
